@@ -12,19 +12,21 @@ namespace StackMerger
 {
     public class ListerStackables : MapComponent
     {
-        private List<Thing> stackables;
-        private Dictionary<SlotGroup, IEnumerable<Thing>> stackablesBySlotGroup;
+        private HashSet<Thing> stackables;
         private int slotGroupIndex;
 
         public ListerStackables( Map map ) : base( map ) {
-            stackables = new List<Thing>();
-            stackablesBySlotGroup = new Dictionary<SlotGroup, IEnumerable<Thing>>();
+            stackables = new HashSet<Thing>();
         }
 
         public override void MapComponentTick()
         {
             // check one slotgroup every 10 ticks (6Hz)
             if ( !( Current.Game.tickManager.TicksGame % 10 == 0 ) )
+                return;
+
+            // do we have any slotgroups?
+            if ( map.slotGroupManager.AllGroupsListForReading.NullOrEmpty() )
                 return;
             
             // iterate slotgroups
@@ -36,41 +38,25 @@ namespace StackMerger
             List<SlotGroup> groups = map.slotGroupManager.AllGroupsListForReading;
             SlotGroup current = groups[slotGroupIndex % groups.Count];
             
+            Log.Message( $"Checking {current.parent.SlotYielderLabel()}..."  );
+
             // get list of current stackables
             var currentStackables = GetStackables( current );
 
+            Log.Message( $"Found {currentStackables.Count()} stackables..." );
+
             // update list
             UpdateStackables( current, currentStackables );
+
+            Log.Message( $"There are now {stackables.Count} stackables in total..." );
         }
 
         private void UpdateStackables( SlotGroup slotgroup, IEnumerable<Thing> currentStackables )
         {
-            // if we previously checked this slotgroup, check for any discrepancies.
-            if ( stackablesBySlotGroup.ContainsKey( slotgroup ) )
-            {
-                var oldStackables = stackablesBySlotGroup[slotgroup];
-
-                // add things in current not in the list
-                foreach ( Thing stackable in currentStackables )
-                    if ( !oldStackables.Contains( stackable ) )
-                        stackables.Add( stackable );
-
-                // remove things in the list not in current
-                foreach ( Thing stackable in oldStackables )
-                    if ( !currentStackables.Contains( stackable ) )
-                        stackables.Remove( stackable );
-
-                // update cache
-                stackablesBySlotGroup[slotgroup] = currentStackables;
-            }
-
-            // if we have never checked this slotgroup, add everything
-            else
-            {
-                stackables.AddRange( currentStackables );
-                stackablesBySlotGroup.Add( slotgroup, currentStackables );
-            }
-
+            // add things in current not in the list
+            foreach ( Thing stackable in currentStackables )
+                if ( !stackables.Contains( stackable ) )
+                    stackables.Add( stackable );
         }
 
         public List<Thing> StackablesListForReading => new List<Thing>( stackables );
@@ -82,10 +68,9 @@ namespace StackMerger
                 return new List<Thing>();
 
             // get list of potential stacks in the room(s) of this slotgroup
-            var rooms = storage.CellsList.Select( c => c.GetRoom( map ) ).Distinct();
-            var potentialTargets = rooms.SelectMany( r => r.AllContainedThings )
-                                        .Where( t => t.stackCount < t.def.stackLimit &&
-                                                     t.IsInValidBestStorage() );
+            var potentialTargets = storage.HeldThings
+                                          .Where( t => t.stackCount < t.def.stackLimit &&
+                                                       t.IsInValidBestStorage() );
 
             return storage.HeldThings.Where( thing => thing.stackCount < thing.def.stackLimit &&
                                                       thing.IsInValidBestStorage() &&
@@ -98,8 +83,8 @@ namespace StackMerger
         public bool TryGetTargetCell( Pawn pawn, Thing thing, out IntVec3 target )
         {
             // get valid cells 
-            var targetThings = thing.GetRoom()?
-                                    .AllContainedThings
+            var targetThings = thing.GetSlotGroup()?
+                                    .HeldThings?
                                     .Where( other => thing != other
                                                      && other.CanStackWith( thing )
                                                      && map.reservationManager.CanReserve( pawn, other, 1 )
@@ -129,11 +114,15 @@ namespace StackMerger
                 return false;
 
             // there is another target stack available
-            var potentialTargets = thing.GetRoom()?.AllContainedThings;
+            var potentialTargets = thing.GetSlotGroup().HeldThings;
             var stackable = potentialTargets.Any( other => thing != other
                                                            && other.CanStackWith( thing )
-                                                           && other.IsInValidBestStorage()
+                                                           // && other.IsInValidBestStorage() // true by definition if in same slotgroup
                                                            && other.stackCount < other.def.stackLimit );
+
+            // this was found not to be stackable, remove from the list
+            if ( !stackable && stackables.Contains( thing ) )
+                stackables.Remove( thing );
 
             return stackable;
         }
