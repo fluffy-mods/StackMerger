@@ -5,6 +5,7 @@ using System.Text;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using static StackMerger.ListerStackables;
 
 namespace StackMerger
 {
@@ -12,34 +13,33 @@ namespace StackMerger
     {
         public override IEnumerable<Thing> PotentialWorkThingsGlobal( Pawn pawn )
         {
-            Log.Message( $"{pawn.NameStringShort} is checking potential things, of which there are {pawn.Map.listerStackables().StackablesListForReading.Count}..."  );
-            return pawn.Map.listerStackables().StackablesListForReading;
+            LogIfDebug( $"{pawn.NameStringShort} is checking potential things, of which there are { StackablesListForReading( pawn.Map ).Count}..."  );
+            return StackablesListForReading( pawn.Map );
         }
 
         public override bool ShouldSkip( Pawn pawn )
         {
-            Log.Message( $"{pawn.NameStringShort} is trying to skip merging, ShouldSkip is {!PotentialWorkThingsGlobal(pawn).Any()}..." );
+            LogIfDebug( $"{pawn.NameStringShort} is trying to skip merging, ShouldSkip is {!PotentialWorkThingsGlobal(pawn).Any()}..." );
             return !PotentialWorkThingsGlobal( pawn ).Any();
         }
 
         public override Job JobOnThing( Pawn pawn, Thing thing )
         {
-            Log.Message( $"{pawn.NameStringShort} is trying to merge {thing.Label}..."  );
+            LogIfDebug( $"{pawn.NameStringShort} is trying to merge {thing.Label}..."  );
 
-            if ( !thing.MapHeld.listerStackables().Check( thing ) )
+            // CheckRemove will gradually whittle down invalid stackables by removing them from the lister.
+            // todo; figure out why they're still in the lister in the first place...
+            if ( !CheckRemove( thing, pawn ) )
                 return null;
-
-            Log.Message( $"{thing.LabelCap} checks out..." );
-
+            
             // standard hauling checks
             if ( !HaulAIUtility.PawnCanAutomaticallyHaulFast( pawn, thing ) )
                 return null;
 
             // can reserve and reach target location
+            LogIfDebug( $"{thing.LabelCap} can be hauled..." );
 
-            Log.Message( $"{thing.LabelCap} can be hauled..." );
-
-            // find better place
+            // find better place, and haul there
             IntVec3 target;
             if ( pawn.Map.listerStackables().TryGetTargetCell( pawn, thing, out target ) )
                 if ( pawn.Map.reservationManager.CanReserve( pawn, target, 1 ) )

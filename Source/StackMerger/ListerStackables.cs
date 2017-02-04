@@ -5,22 +5,38 @@
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
+using UnityEngine;
 using Verse;
-using Verse.AI;
 
 namespace StackMerger
 {
     public class ListerStackables : MapComponent
     {
-        private HashSet<Thing> stackables;
+        private static List<Thing> stackables = new List<Thing>();
         private int slotGroupIndex;
+        private int stackableIndex;
 
-        public ListerStackables( Map map ) : base( map ) {
-            stackables = new HashSet<Thing>();
+        public ListerStackables( Map map ) : base( map ) {}
+
+        private void LogDebug( Thing thing )
+        {
+            LogIfDebug( $"{thing.Label}\n\tSpawned:{thing.Spawned}\n\tPos:{thing.Position}\n\tForbidden:{thing.IsForbidden( Faction.OfPlayer )}" );
+        }
+
+        public static void LogIfDebug( string message )
+        {
+#if DEBUG
+            Log.Message( message );
+#endif
         }
 
         public override void MapComponentTick()
         {
+            if ( Current.Game.tickManager.TicksGame % 600 == 0 )
+            {
+                stackables.ForEach( LogDebug );
+            }
+            
             // check one slotgroup every 10 ticks (6Hz)
             if ( !( Current.Game.tickManager.TicksGame % 10 == 0 ) )
                 return;
@@ -37,21 +53,10 @@ namespace StackMerger
             // get current slotgroup
             List<SlotGroup> groups = map.slotGroupManager.AllGroupsListForReading;
             SlotGroup current = groups[slotGroupIndex % groups.Count];
-            
-            Log.Message( $"Checking {current.parent.SlotYielderLabel()}..."  );
-
-            // get list of current stackables
-            var currentStackables = GetStackables( current );
-
-            Log.Message( $"Found {currentStackables.Count()} stackables..." );
-
-            // update list
-            UpdateStackables( current, currentStackables );
-
-            Log.Message( $"There are now {stackables.Count} stackables in total..." );
+            Update( current );
         }
 
-        private void UpdateStackables( SlotGroup slotgroup, IEnumerable<Thing> currentStackables )
+        private static void Update( IEnumerable<Thing> currentStackables )
         {
             // add things in current not in the list
             foreach ( Thing stackable in currentStackables )
@@ -59,9 +64,12 @@ namespace StackMerger
                     stackables.Add( stackable );
         }
 
-        public List<Thing> StackablesListForReading => new List<Thing>( stackables );
+        public static List<Thing> StackablesListForReading( Map map )
+        {
+            return new List<Thing>( stackables.Where( t => t.Map == map ) );
+        }
 
-        internal IEnumerable<Thing> GetStackables( SlotGroup storage )
+        internal static IEnumerable<Thing> GetStackables( SlotGroup storage )
         {
             // garbage in, slightly better garbage out
             if ( storage?.HeldThings == null )
@@ -77,7 +85,6 @@ namespace StackMerger
                                                       potentialTargets.Any( other => thing != other &&
                                                                                      thing.CanStackWith( other ) &&
                                                                                      thing.stackCount <= other.stackCount ) );
-
         }
 
         public bool TryGetTargetCell( Pawn pawn, Thing thing, out IntVec3 target )
@@ -103,27 +110,57 @@ namespace StackMerger
             return false;
         }
         
-        internal bool Check( Thing thing )
+        internal static bool CheckRemove( Thing thing, Pawn pawn = null )
         {
             // reject garbage
             if ( thing == null )
                 return false;
             
-            // stack is not full yet, and doesn't need to be hauled to a different storage
-            if ( thing.stackCount >= thing.def.stackLimit || !thing.IsInValidBestStorage() )
-                return false;
-
-            // there is another target stack available
-            var potentialTargets = thing.GetSlotGroup().HeldThings;
-            var stackable = potentialTargets.Any( other => thing != other
-                                                           && other.CanStackWith( thing )
-                                                           // && other.IsInValidBestStorage() // true by definition if in same slotgroup
-                                                           && other.stackCount < other.def.stackLimit );
+            bool stackable = Stackable( thing, pawn );
 
             // this was found not to be stackable, remove from the list
             if ( !stackable && stackables.Contains( thing ) )
                 stackables.Remove( thing );
+            
+            return stackable;
+        }
 
+        internal static void Update( SlotGroup slotgroup )
+        {
+            // get list of current stackables
+            var currentStackables = GetStackables( slotgroup );
+
+            // update list
+            Update( currentStackables );
+        }
+
+        internal static void CheckAdd( Thing thing )
+        {
+            if ( Stackable(thing) && !stackables.Contains( thing ))
+                 stackables.Add( thing );
+        }
+
+        private static bool Stackable( Thing thing, Pawn pawn = null )
+        {
+            // stack still exists, is not full yet, and doesn't need to be hauled to a different storage
+            bool stackable = thing.GetSlotGroup() != null // includes thing.Spawned
+                             && thing.def.alwaysHaulable
+                             // if pawn is not given, assume player faction
+                             && !thing.IsForbidden( pawn?.Faction ?? Faction.OfPlayer )
+                             && thing.stackCount < thing.def.stackLimit
+                             && thing.IsInValidBestStorage();
+
+            // cop out if this isn't stackable
+            if ( !stackable )
+                return false;
+
+            // there is another target stack available
+            var potentialTargets = thing.GetSlotGroup().HeldThings;
+
+            stackable = stackable && potentialTargets.Any( other => thing != other
+                                                                    && other.CanStackWith( thing )
+                                                                    // && other.IsInValidBestStorage() // true by definition if in same slotgroup
+                                                                    && other.stackCount < other.def.stackLimit );
             return stackable;
         }
     }

@@ -2,6 +2,7 @@
 // Map_Extensions.cs
 // 2017-02-03
 
+using System;
 using Verse;
 
 namespace StackMerger
@@ -10,6 +11,9 @@ namespace StackMerger
     {
         public static ListerStackables listerStackables( this Map map )
         {
+            if ( map == null )
+                throw new ArgumentNullException( nameof( map ) );
+
             // fetch component
             var lister = map.GetComponent<ListerStackables>();
 
