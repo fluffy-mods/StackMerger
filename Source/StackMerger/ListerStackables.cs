@@ -12,7 +12,7 @@ namespace StackMerger
 {
     public class ListerStackables : MapComponent
     {
-        private static List<Thing> stackables = new List<Thing>();
+        private List<Thing> stackables = new List<Thing>();
         private int slotGroupIndex;
         private int stackableIndex;
 
@@ -56,7 +56,7 @@ namespace StackMerger
             Update( current );
         }
 
-        private static void Update( IEnumerable<Thing> currentStackables )
+        private void Update( IEnumerable<Thing> currentStackables )
         {
             // add things in current not in the list
             foreach ( Thing stackable in currentStackables )
@@ -64,11 +64,8 @@ namespace StackMerger
                     stackables.Add( stackable );
         }
 
-        public static List<Thing> StackablesListForReading( Map map )
-        {
-            return new List<Thing>( stackables.Where( t => t.Map == map ) );
-        }
-
+        public List<Thing> StackablesListForReading => new List<Thing>( stackables );
+        
         internal static IEnumerable<Thing> GetStackables( SlotGroup storage )
         {
             // garbage in, slightly better garbage out
@@ -94,6 +91,10 @@ namespace StackMerger
                                     .HeldThings?
                                     .Where( other => thing != other
                                                      && other.CanStackWith( thing )
+                                                     // only move stuff to larger stacks
+                                                     // should stop situation with stacksize mods 
+                                                     // where pawns keep going back and forth between stacks
+                                                     && other.stackCount >= thing.stackCount
                                                      && map.reservationManager.CanReserve( pawn, other, 1 )
                                                      && other.IsInValidBestStorage()
                                                      && other.stackCount < other.def.stackLimit );
@@ -110,7 +111,7 @@ namespace StackMerger
             return false;
         }
         
-        internal static bool CheckRemove( Thing thing, Pawn pawn = null )
+        internal bool CheckRemove( Thing thing, Pawn pawn = null )
         {
             // reject garbage
             if ( thing == null )
@@ -125,7 +126,7 @@ namespace StackMerger
             return stackable;
         }
 
-        internal static void Update( SlotGroup slotgroup )
+        internal void Update( SlotGroup slotgroup )
         {
             // get list of current stackables
             var currentStackables = GetStackables( slotgroup );
@@ -134,7 +135,7 @@ namespace StackMerger
             Update( currentStackables );
         }
 
-        internal static void CheckAdd( Thing thing )
+        internal void CheckAdd( Thing thing )
         {
             if ( Stackable(thing) && !stackables.Contains( thing ))
                  stackables.Add( thing );
@@ -159,6 +160,10 @@ namespace StackMerger
 
             stackable = stackable && potentialTargets.Any( other => thing != other
                                                                     && other.CanStackWith( thing )
+                                                                    // only more stuff to stacks that are larger or equal size than you
+                                                                    // (should make things more efficient, as well as stop pawns going back and 
+                                                                    // forth with stackSize mods installed)
+                                                                    && other.stackCount >= thing.stackCount
                                                                     // && other.IsInValidBestStorage() // true by definition if in same slotgroup
                                                                     && other.stackCount < other.def.stackLimit );
             return stackable;
