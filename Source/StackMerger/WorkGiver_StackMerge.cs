@@ -13,8 +13,8 @@ namespace StackMerger
     {
         public override IEnumerable<Thing> PotentialWorkThingsGlobal( Pawn pawn )
         {
-            LogIfDebug( $"{pawn.NameStringShort} is checking potential things, of which there are { StackablesListForReading( pawn.Map ).Count}..."  );
-            return StackablesListForReading( pawn.Map );
+            LogIfDebug( $"{pawn.NameStringShort} is checking potential things, of which there are { pawn.Map.listerStackables().StackablesListForReading.Count}..."  );
+            return pawn.Map.listerStackables().StackablesListForReading;
         }
 
         public override bool ShouldSkip( Pawn pawn )
@@ -29,7 +29,7 @@ namespace StackMerger
 
             // CheckRemove will gradually whittle down invalid stackables by removing them from the lister.
             // todo; figure out why they're still in the lister in the first place...
-            if ( !CheckRemove( thing, pawn ) )
+            if ( !pawn.Map.listerStackables().CheckRemove( thing, pawn ) )
                 return null;
             
             // standard hauling checks
@@ -41,9 +41,12 @@ namespace StackMerger
 
             // find better place, and haul there
             IntVec3 target;
-            if ( pawn.Map.listerStackables().TryGetTargetCell( pawn, thing, out target ) )
-                if ( pawn.Map.reservationManager.CanReserve( pawn, target, 1 ) )
-                    return HaulAIUtility.HaulMaxNumToCellJob( pawn, thing, target , true );
+            if ( pawn.Map.listerStackables().TryGetTargetCell( pawn, thing, out target ) 
+                && pawn.Map.reservationManager.CanReserve( pawn, target, 1 ) )
+            {
+                LogIfDebug( $"Hauling {thing.Label} to {target}..."  );
+                return HaulAIUtility.HaulMaxNumToCellJob( pawn, thing, target, true );
+            }
             return null;
         }
 
