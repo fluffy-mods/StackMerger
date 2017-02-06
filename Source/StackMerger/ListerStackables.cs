@@ -14,7 +14,6 @@ namespace StackMerger
     {
         private List<Thing> stackables = new List<Thing>();
         private int slotGroupIndex;
-        private int stackableIndex;
 
         public ListerStackables( Map map ) : base( map ) {}
 
@@ -37,8 +36,8 @@ namespace StackMerger
                 stackables.ForEach( LogDebug );
             }
             
-            // check one slotgroup every 10 ticks (6Hz)
-            if ( !( Current.Game.tickManager.TicksGame % 10 == 0 ) )
+            // check one slotgroup every 30 ticks (2Hz)
+            if ( Current.Game.tickManager.TicksGame % 30 != 0 )
                 return;
 
             // do we have any slotgroups?
@@ -55,15 +54,7 @@ namespace StackMerger
             SlotGroup current = groups[slotGroupIndex % groups.Count];
             Update( current );
         }
-
-        private void Update( IEnumerable<Thing> currentStackables )
-        {
-            // add things in current not in the list
-            foreach ( Thing stackable in currentStackables )
-                if ( !stackables.Contains( stackable ) )
-                    stackables.Add( stackable );
-        }
-
+        
         public List<Thing> StackablesListForReading => new List<Thing>( stackables );
         
         internal static IEnumerable<Thing> GetStackables( SlotGroup storage )
@@ -72,38 +63,25 @@ namespace StackMerger
             if ( storage?.HeldThings == null )
                 return new List<Thing>();
 
-            // get list of potential stacks in the room(s) of this slotgroup
-            var potentialTargets = storage.HeldThings
-                                          .Where( t => t.stackCount < t.def.stackLimit &&
-                                                       t.IsInValidBestStorage() );
-
-            return storage.HeldThings.Where( thing => thing.stackCount < thing.def.stackLimit &&
-                                                      thing.IsInValidBestStorage() &&
-                                                      potentialTargets.Any( other => thing != other &&
-                                                                                     thing.CanStackWith( other ) &&
-                                                                                     thing.stackCount <= other.stackCount ) );
+            return storage.HeldThings.Where( thing => TheoreticallyStackable( thing )
+                                                      && storage.HeldThings.Any( other => CanBeStackTarget( other, thing ) ) );
         }
 
         public bool TryGetTargetCell( Pawn pawn, Thing thing, out IntVec3 target )
         {
-            // get valid cells 
-            var targetThings = thing.GetSlotGroup()?
-                                    .HeldThings?
-                                    .Where( other => thing != other
-                                                     && other.CanStackWith( thing )
-                                                     // only move stuff to larger stacks
-                                                     // should stop situation with stacksize mods 
-                                                     // where pawns keep going back and forth between stacks
-                                                     && other.stackCount >= thing.stackCount
-                                                     && map.reservationManager.CanReserve( pawn, other, 1 )
-                                                     && other.IsInValidBestStorage()
-                                                     && other.stackCount < other.def.stackLimit );
-
-            // select valid cell with the current highest count, if any
-            if ( targetThings != null && targetThings.Any() )
+            if ( TheoreticallyStackable( thing, pawn ) )
             {
-                target = targetThings.MaxBy( t => t.stackCount ).Position;
-                return true;
+                // get valid cells 
+                var targetThings = thing.GetSlotGroup()?
+                                        .HeldThings?
+                                        .Where( other => CanBeStackTarget( other, thing, pawn ) );
+
+                // select valid cell with the current highest count, if any
+                if (targetThings != null && targetThings.Any())
+                {
+                    target = targetThings.MaxBy(t => t.stackCount).Position;
+                    return true;
+                }
             }
             
             // no targets :(
@@ -111,28 +89,21 @@ namespace StackMerger
             return false;
         }
         
-        internal bool CheckRemove( Thing thing, Pawn pawn = null )
+        internal void TryRemove( Thing thing )
         {
-            // reject garbage
-            if ( thing == null )
-                return false;
-            
-            bool stackable = Stackable( thing, pawn );
-
-            // this was found not to be stackable, remove from the list
-            if ( !stackable && stackables.Contains( thing ) )
+            if ( stackables.Contains( thing ) )
                 stackables.Remove( thing );
-            
-            return stackable;
         }
 
         internal void Update( SlotGroup slotgroup )
         {
             // get list of current stackables
             var currentStackables = GetStackables( slotgroup );
-
-            // update list
-            Update( currentStackables );
+            
+            // add things in current not in the list
+            foreach (Thing stackable in currentStackables)
+                if (!stackables.Contains(stackable))
+                    stackables.Add(stackable);
         }
 
         internal void CheckAdd( Thing thing )
@@ -141,32 +112,40 @@ namespace StackMerger
                  stackables.Add( thing );
         }
 
-        private static bool Stackable( Thing thing, Pawn pawn = null )
+        private static bool CanBeStackTarget( Thing target, Thing thing, Pawn pawn = null )
+        {
+            return thing != target
+                   && target != null && thing != null
+                   && target.CanStackWith( thing )
+                   // only move stuff to larger stacks
+                   // should stop situation with stacksize mods 
+                   // where pawns keep going back and forth between stacks
+                   && target.stackCount >= thing.stackCount
+                   && target.stackCount < target.def.stackLimit
+                   // is a good storage cell (no blockers, can be reserved, reachable, no fires, etc)
+                   && StoreUtility.IsGoodStoreCell( target.Position, target.Map, thing, pawn,
+                                                    pawn?.Faction ?? Faction.OfPlayer )
+                   // is going to stay around for a while
+                   && target.IsInValidBestStorage();
+        }
+
+        private static bool TheoreticallyStackable( Thing thing, Pawn pawn = null )
         {
             // stack still exists, is not full yet, and doesn't need to be hauled to a different storage
-            bool stackable = thing.GetSlotGroup() != null // includes thing.Spawned
-                             && thing.def.alwaysHaulable
-                             // if pawn is not given, assume player faction
-                             && !thing.IsForbidden( pawn?.Faction ?? Faction.OfPlayer )
-                             && thing.stackCount < thing.def.stackLimit
-                             && thing.IsInValidBestStorage();
+            return thing?.GetSlotGroup() != null // includes thing.Spawned
+                   && thing.def.alwaysHaulable
+                   // if pawn is not given, assume player faction
+                   && !thing.IsForbidden( pawn?.Faction ?? Faction.OfPlayer )
+                   && thing.stackCount < thing.def.stackLimit
+                   && thing.IsInValidBestStorage();
+        }
 
-            // cop out if this isn't stackable
-            if ( !stackable )
-                return false;
-
-            // there is another target stack available
-            var potentialTargets = thing.GetSlotGroup().HeldThings;
-
-            stackable = stackable && potentialTargets.Any( other => thing != other
-                                                                    && other.CanStackWith( thing )
-                                                                    // only more stuff to stacks that are larger or equal size than you
-                                                                    // (should make things more efficient, as well as stop pawns going back and 
-                                                                    // forth with stackSize mods installed)
-                                                                    && other.stackCount >= thing.stackCount
-                                                                    // && other.IsInValidBestStorage() // true by definition if in same slotgroup
-                                                                    && other.stackCount < other.def.stackLimit );
-            return stackable;
+        private static bool Stackable( Thing thing, Pawn pawn = null )
+        {
+            // is this stack a viable target at all, and is there another target stack available
+            return TheoreticallyStackable(thing, pawn) 
+                && thing.GetSlotGroup().HeldThings.Any( other => CanBeStackTarget( other, thing, pawn ) );
+            
         }
     }
 }

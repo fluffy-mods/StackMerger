@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
 using Harmony;
 using RimWorld;
 using Verse;
@@ -39,7 +36,7 @@ namespace StackMerger
             if (map == null)
                 throw new Exception( $"Could not get map to despawn {t.Label} from...");
 
-            map.listerStackables().CheckRemove( t );
+            map.listerStackables().TryRemove( t );
         }
     }
 
@@ -48,7 +45,7 @@ namespace StackMerger
     [HarmonyPatch( new Type[] { typeof( Thing ) } )]
     class Notify_Forbidden
     {
-        static void Postfix( Thing t ) { t.MapHeld.listerStackables().CheckRemove( t ); }
+        static void Postfix( Thing t ) { t.MapHeld.listerStackables().TryRemove( t ); }
     }
 
     [HarmonyPatch( typeof( ListerHaulables ) )]

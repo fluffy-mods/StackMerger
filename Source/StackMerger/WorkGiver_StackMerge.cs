@@ -26,27 +26,30 @@ namespace StackMerger
         public override Job JobOnThing( Pawn pawn, Thing thing )
         {
             LogIfDebug( $"{pawn.NameStringShort} is trying to merge {thing.Label}..."  );
-
-            // CheckRemove will gradually whittle down invalid stackables by removing them from the lister.
-            // todo; figure out why they're still in the lister in the first place...
-            if ( !pawn.Map.listerStackables().CheckRemove( thing, pawn ) )
-                return null;
             
             // standard hauling checks
             if ( !HaulAIUtility.PawnCanAutomaticallyHaulFast( pawn, thing ) )
                 return null;
-
-            // can reserve and reach target location
+            
             LogIfDebug( $"{thing.LabelCap} can be hauled..." );
 
             // find better place, and haul there
             IntVec3 target;
-            if ( pawn.Map.listerStackables().TryGetTargetCell( pawn, thing, out target ) 
-                && pawn.Map.reservationManager.CanReserve( pawn, target, 1 ) )
+            if ( pawn.Map.listerStackables().TryGetTargetCell( pawn, thing, out target ) )
             {
-                LogIfDebug( $"Hauling {thing.Label} to {target}..."  );
-                return HaulAIUtility.HaulMaxNumToCellJob( pawn, thing, target, true );
+                if ( pawn.Map.reservationManager.CanReserve( pawn, target, 1 ) )
+                {
+                    LogIfDebug( $"Hauling {thing.Label} to {target}..." );
+                    return HaulAIUtility.HaulMaxNumToCellJob( pawn, thing, target, true );
+                }
+                LogIfDebug($"Couldn't reserve {target}...");
             }
+            else
+            {
+                LogIfDebug($"Couldn't get target cell for {thing.Label}, removing from cache...");
+                pawn.Map.listerStackables().TryRemove( thing );
+            }
+                 
             return null;
         }
 
