@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <WorkGivers>
-
     <WorkGiverDef>
         <defName>MergeStacks</defName>
         <label>merge stacks</label>
@@ -14,5 +13,4 @@
             <li>Manipulation</li>
         </requiredCapacities>
     </WorkGiverDef>
-
 </WorkGivers>
