@@ -23,12 +23,12 @@ namespace StackMerger
             return !PotentialWorkThingsGlobal( pawn ).Any();
         }
 
-        public override Job JobOnThing( Pawn pawn, Thing thing )
+        public override Job JobOnThing( Pawn pawn, Thing thing, bool forced = false )
         {
             LogIfDebug( $"{pawn.NameStringShort} is trying to merge {thing.Label}..."  );
             
             // standard hauling checks
-            if ( !HaulAIUtility.PawnCanAutomaticallyHaulFast( pawn, thing ) )
+            if ( !HaulAIUtility.PawnCanAutomaticallyHaulFast( pawn, thing, forced ) )
                 return null;
             
             LogIfDebug( $"{thing.LabelCap} can be hauled..." );
