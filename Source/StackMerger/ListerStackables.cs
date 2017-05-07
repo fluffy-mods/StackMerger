@@ -17,6 +17,7 @@ namespace StackMerger
 
         public ListerStackables( Map map ) : base( map ) {}
 
+#if DEBUG
         private void LogDebug( Thing thing )
         {
             LogIfDebug( $"{thing.Label}\n\tSpawned:{thing.Spawned}\n\tPos:{thing.Position}\n\tForbidden:{thing.IsForbidden( Faction.OfPlayer )}" );
@@ -24,17 +25,18 @@ namespace StackMerger
 
         public static void LogIfDebug( string message )
         {
-#if DEBUG
             Log.Message( message );
-#endif
         }
+#endif
 
         public override void MapComponentTick()
         {
+#if DEBUG
             if ( Current.Game.tickManager.TicksGame % 600 == 0 )
             {
                 stackables.ForEach( LogDebug );
             }
+#endif
             
             // check one slotgroup every 30 ticks (2Hz)
             if ( Current.Game.tickManager.TicksGame % 30 != 0 )

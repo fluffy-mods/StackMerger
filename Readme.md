@@ -18,6 +18,7 @@ When I was playtesting this, [Stockpile Efficiency](http://steamcommunity.com/sh
 
 # Contributors
  - duduluu:	Chinese translations
+ - Zhentar:	
 
 # Think you found a bug? 
 Please read [this guide](http://steamcommunity.com/sharedfiles/filedetails/?id=725234314) before creating a bug report,

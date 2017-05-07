@@ -3,7 +3,7 @@
   <name>Stack Merger</name>
   <author>Fluffy</author>
   <url>https://ludeon.com/forums/index.php?topic=16120</url>
-  <targetVersion>0.16.1393</targetVersion>
+  <targetVersion>0.17.1530</targetVersion>
   <description>Make your haulers understand that a tidy stockpile is an efficient stockpile.
 
 &lt;size=24&gt;Important&lt;/size&gt;
@@ -21,6 +21,7 @@ When I was playtesting this, Stockpile Efficiency was brought to my attention. T
 &lt;size=24&gt;Contributors&lt;/size&gt;
 
 duduluu:    Chinese translations
+Zhentar:    
 
 </description>
 </ModMetaData>
