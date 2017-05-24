@@ -2,9 +2,6 @@
 
 Make your haulers understand that a tidy stockpile is an efficient stockpile.
 
-# Important
-This mod uses [Harmony](https://github.com/pardeike/harmony/), a fancy new toy for modders. You don't have to install harmony as it comes bundled with the mod, but if you encounter any errors, please let me know!
-
 # Features
 Adds a low-priority hauling job that makes your haulers merge stacks in your stockpiles. Works per stockpile, so if items are in different stockpiles they will not be merged. 
 
@@ -34,4 +31,4 @@ All original content (e.g. text, imagery, sounds) in this mod is licensed under 
 Parts of the code in this mod, and some content may be licensed by their original authors. If this is the case, the original author & license will either be given in the source code, or be in a LICENSE file next to the content. Please do not decompile my mods, but use the original source code available on [GitHub](https://github.com/FluffierThanThou/StackMerger/), so license information in the source code is preserved.
 
 # Version
-This is version v0.17.0.0
+This is version v0.17.1.0
