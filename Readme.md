@@ -18,6 +18,7 @@ When I was playtesting this, [Stockpile Efficiency](http://steamcommunity.com/sh
  - Zhentar:	A17 update
  - Lauri7x3:	German translation
  - Proxyer:	Japanese translation
+ - Orange_mushroom:	Korean translation
 
 # Think you found a bug? 
 Please read [this guide](http://steamcommunity.com/sharedfiles/filedetails/?id=725234314) before creating a bug report,
@@ -38,4 +39,4 @@ Show your appreciation by buying me a coffee (or contribute towards a nice singl
 [![Buy Me a Coffee](http://i.imgur.com/EjWiUwx.gif)](https://ko-fi.com/fluffymods)
 
 # Version
-This is version v0.18.1.4
+This is version v0.18.1.5
